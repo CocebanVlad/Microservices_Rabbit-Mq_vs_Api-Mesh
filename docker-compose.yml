@@ -1,0 +1,67 @@
+version: "3.9"
+services:
+    mq:
+        image: rabbitmq:3-management
+        ports:
+            - "15672:15672"
+            - "5672"
+        # environment:
+        #     RABBITMQ_DEFAULT_USER: "admin"
+        #     RABBITMQ_DEFAULT_PASS: "Kv29Enmp"
+    text-processor:
+        build:
+            context: .
+            dockerfile: TextProcessor.WebAPI/Dockerfile
+        environment:
+            ASPNETCORE_ENVIRONMENT: "Development"
+    bubble-sort:
+        build:
+            context: .
+            dockerfile: BubbleSort.WebAPI/Dockerfile
+        environment:
+            ASPNETCORE_ENVIRONMENT: "Development"
+    text-processor-mqclient:
+        build:
+            context: .
+            dockerfile: TextProcessor.RabbitMQClient/Dockerfile
+        links:
+            - mq
+        depends_on:
+            - mq
+        environment:
+            ASPNETCORE_ENVIRONMENT: "Development"
+            RABBITMQ_HOST: "mq"
+            RABBITMQ_PORT: "5672"
+    bubble-sort-mqclient:
+        build:
+            context: .
+            dockerfile: BubbleSort.RabbitMQClient/Dockerfile
+        links:
+            - mq
+        depends_on:
+            - mq
+        environment:
+            ASPNETCORE_ENVIRONMENT: "Development"
+            RABBITMQ_HOST: "mq"
+            RABBITMQ_PORT: "5672"
+    client:
+        build:
+            context: .
+            dockerfile: Client.WebApp/Dockerfile
+        links:
+            - text-processor
+            - bubble-sort
+            - mq
+        depends_on:
+            - text-processor
+            - bubble-sort
+            - mq
+        environment:
+            ASPNETCORE_ENVIRONMENT: "Development"
+            TEXT_PROCESSOR_URL: "http://text-processor/"
+            BUBBLE_SORT_URL: "http://bubble-sort/"
+            RABBITMQ_HOST: "mq"
+            RABBITMQ_PORT: "5672"
+            RABBITMQ_SERVICE_EXCHANGE_ROUTES: "{'text-processor':'TextProcessor.InputQueue','bubble-sort':'BubbleSort.InputQueue'}"
+        ports:
+            - "8080:80"
